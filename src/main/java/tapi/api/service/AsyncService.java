@@ -26,6 +26,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.web3j.crypto.Hash;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
 import org.web3j.utils.Numeric;
@@ -141,6 +142,7 @@ public class AsyncService
 
     Map<BigInteger, UDPClientInstance> holdingClients = new ConcurrentHashMap<>();
     Map<String, UDPClientInstance> clients = new ConcurrentHashMap<>();
+    Map<byte[], UDPClientInstance> connectionMap = new ConcurrentHashMap<>();
 
     private class UDPClient extends Thread
     {
@@ -186,10 +188,15 @@ public class AsyncService
                     inputStream.close();
                     bas.close();
 
+                    String pathStr = packet.getAddress().toString() + "-" + port;
+                    byte[] pathHash = Hash.sha3(pathStr.getBytes());
+
+                    thisClient = holdingClients.get(tokenValue);
+                    if (thisClient != null) thisClient = connectionMap.get(pathHash);
+
                     switch (type)
                     {
                         case 0: //request a random
-                            thisClient = holdingClients.get(tokenValue);
                             if (thisClient == null)
                             {
                                 thisClient = new UDPClientInstance(address, port, "");
@@ -220,12 +227,13 @@ public class AsyncService
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
                             holdingClients.put(tokenValue, thisClient);
+                            connectionMap.put(pathHash, thisClient);
                             System.out.println("New Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
                         case 1: //address
                             System.out.println("Connection From: " + Numeric.toHexString(rcvSessionToken));
 
-                            thisClient = holdingClients.get(tokenValue);
+                            //thisClient = holdingClients.get(tokenValue);
 
                             //recover signature
                             if (thisClient != null && payload.length == 65 && !thisClient.validated)
@@ -257,6 +265,7 @@ public class AsyncService
                                 purgeHoldingClients(address, port);
                                 clients.put(recoveredAddr.toLowerCase(), newClient);
                                 holdingClients.put(tokenValue, newClient);
+                                connectionMap.put(pathHash, thisClient);
                                 sendToClient(newClient, (byte)1, newClient.sessionToken);
                                 System.out.println("New Session T: " + Numeric.toHexString(newClient.sessionToken));
                             }
