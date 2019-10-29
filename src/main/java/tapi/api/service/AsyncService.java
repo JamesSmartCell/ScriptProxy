@@ -96,7 +96,7 @@ public class AsyncService
 
     private class UDPClientInstance
     {
-        public final String ethAddress;
+        public String ethAddress;
         public InetAddress IPAddress;
         public int port;
         public byte packetId;
@@ -159,7 +159,6 @@ public class AsyncService
 
     Map<BigInteger, UDPClientInstance> holdingClients = new ConcurrentHashMap<>();
     Map<String, UDPClientInstance> clients = new ConcurrentHashMap<>();
-    Map<String, UDPClientInstance> connectionMap = new ConcurrentHashMap<>();
 
     private class UDPClient extends Thread
     {
@@ -205,11 +204,7 @@ public class AsyncService
                     inputStream.close();
                     bas.close();
 
-                    String pathStr = packet.getAddress().toString() + "-" + port;
-                    //byte[] pathHash = Hash.sha3(pathStr.getBytes());
-
                     thisClient = holdingClients.get(tokenValue);
-                    if (thisClient == null && !tokenValue.equals(BigInteger.ZERO)) thisClient = connectionMap.get(pathStr);
 
                     switch (type)
                     {
@@ -244,13 +239,11 @@ public class AsyncService
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
                             holdingClients.put(tokenValue, thisClient);
-                            connectionMap.put(pathStr, thisClient);
+                            //connectionMap.put(pathStr, thisClient);
                             System.out.println("New Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
                         case 1: //address
-                            System.out.println("Connection From: " + Numeric.toHexString(rcvSessionToken));
-
-                            //thisClient = holdingClients.get(tokenValue);
+                            System.out.println("Receive Verification From: " + Numeric.toHexString(rcvSessionToken));
 
                             //recover signature
                             if (thisClient != null && payload.length == 65 && !thisClient.validated)
@@ -259,15 +252,14 @@ public class AsyncService
                                 //recover address from signature
                                 BigInteger recoveredKey = Sign.signedMessageToKey(rcvSessionToken, sigData);
                                 String recoveredAddr = "0x" + Keys.getAddress(recoveredKey);
-                                UDPClientInstance newClient;
                                 if (thisClient.ethAddress.length() == 0)
                                 {
-                                    newClient = new UDPClientInstance(address, port, recoveredAddr);
+                                    System.out.println("Validate client: " + recoveredAddr);
+                                    thisClient.ethAddress = recoveredAddr;
                                 }
                                 else if (recoveredAddr.equalsIgnoreCase(thisClient.ethAddress))
                                 {
                                     System.out.println("Renew client.");
-                                    newClient = thisClient;
                                 }
                                 else
                                 {
@@ -275,16 +267,14 @@ public class AsyncService
                                     break;
                                 }
 
-                                newClient.lastConnection = System.currentTimeMillis();
-                                newClient.validated = true;
-                                newClient.sessionToken = rcvSessionToken;
+                                thisClient.lastConnection = System.currentTimeMillis();
+                                thisClient.validated = true;
                                 System.out.println("Validated: " + recoveredAddr);
                                 purgeHoldingClients(address, port);
-                                clients.put(recoveredAddr.toLowerCase(), newClient);
-                                holdingClients.put(tokenValue, newClient);
-                                connectionMap.put(pathStr, thisClient);
-                                sendToClient(newClient, (byte)1, newClient.sessionToken);
-                                System.out.println("New Session T: " + Numeric.toHexString(newClient.sessionToken));
+                                clients.put(recoveredAddr.toLowerCase(), thisClient);
+                                holdingClients.put(tokenValue, thisClient);
+                                sendToClient(thisClient, (byte)1, thisClient.sessionToken);
+                                System.out.println("New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                             }
                             break;
                         case 2:
@@ -293,7 +283,6 @@ public class AsyncService
                             String payloadString = new String(payload);
                             System.out.println("RCV Message: " + Numeric.toHexString(rcvSessionToken));
 
-                            //thisClient = holdingClients.get(tokenValue);
                             if (thisClient != null)
                             {
                                 thisClient = clients.get(thisClient.ethAddress);
