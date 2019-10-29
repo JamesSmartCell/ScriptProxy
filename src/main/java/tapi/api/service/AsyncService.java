@@ -70,18 +70,28 @@ public class AsyncService
         if (instance == null) return CompletableFuture.completedFuture("null");
         int resendIntervalCounter = 0;
         int resendCount = 5;
-        while (!instance.hasResponse() && resendCount > 0)
+        int methodId = instance.packetId;
+        while (!instance.hasResponse(methodId) && resendCount > 0)
         {
             Thread.sleep(10);
             if (resendIntervalCounter++ > 100)
             {
                 resendIntervalCounter = 0;
-                client.reSendToClient(instance);
+                client.reSendToClient(instance, methodId);
                 resendCount--;
             }
         }
 
-        return CompletableFuture.completedFuture(instance.getResponse());
+        if (resendCount == 0)
+        {
+            System.out.println("Timed out");
+        }
+        else
+        {
+            System.out.println("Received: (" + methodId + ") " + instance.responses.get(methodId));
+        }
+
+        return CompletableFuture.completedFuture(instance.getResponse(methodId));
     }
 
     private class UDPClientInstance
@@ -93,10 +103,10 @@ public class AsyncService
         public long lastConnection;
         public long lastRenewal;
         public byte[] sessionToken;
-        public byte[] currentQuery;
 
         public boolean validated;
-        private String response;
+        private Map<Integer, String> responses;
+        private Map<Integer, byte[]> currentQueries;
 
         public UDPClientInstance(InetAddress iAddr, int p, String eAddress)
         {
@@ -104,10 +114,10 @@ public class AsyncService
             IPAddress = iAddr;
             port = p;
             validated = false;
-            response = null;
+            responses = new ConcurrentHashMap<>();
             lastRenewal = 0;
             packetId = 0;
-            currentQuery = null;
+            currentQueries = new ConcurrentHashMap<>();
 
             lastConnection = System.currentTimeMillis();
         }
@@ -121,22 +131,29 @@ public class AsyncService
             return Numeric.toBigInt(sessionToken);
         }
 
-        public boolean hasResponse()
+        public boolean hasResponse(int methodId)
         {
-            return response != null;
+            return responses.get(methodId) != null;
         }
 
-        public String getResponse()
+        public String getResponse(int methodId)
         {
-            String resp = response;
-            response = null;
+            String resp = responses.get(methodId);
+            responses.remove(methodId);
+            currentQueries.remove(methodId);
             return resp;
         }
 
-        public void setResponse(String r)
+        public void setResponse(int methodId, String r)
         {
-            response = r;
-            currentQuery = null;
+            responses.put(methodId, r);
+            currentQueries.remove(methodId);
+        }
+
+        public void setQuery(byte packetId, byte[] packet, byte payloadSize)
+        {
+            packet[2] = payloadSize;
+            currentQueries.put((int)packetId, packet);
         }
     }
 
@@ -192,7 +209,7 @@ public class AsyncService
                     //byte[] pathHash = Hash.sha3(pathStr.getBytes());
 
                     thisClient = holdingClients.get(tokenValue);
-                    if (thisClient == null) thisClient = connectionMap.get(pathStr);
+                    if (thisClient == null && !tokenValue.equals(BigInteger.ZERO)) thisClient = connectionMap.get(pathStr);
 
                     switch (type)
                     {
@@ -271,16 +288,19 @@ public class AsyncService
                             }
                             break;
                         case 2:
+                            int methodId = payload[0];
+                            payload = Arrays.copyOfRange(payload, 1, payload.length);
                             String payloadString = new String(payload);
                             System.out.println("RCV Message: " + Numeric.toHexString(rcvSessionToken));
 
-                            thisClient = holdingClients.get(tokenValue);
+                            //thisClient = holdingClients.get(tokenValue);
                             if (thisClient != null)
                             {
                                 thisClient = clients.get(thisClient.ethAddress);
-                                if (thisClient != null)
+                                if (thisClient != null && thisClient.currentQueries.containsKey(methodId))
                                 {
-                                    thisClient.setResponse(payloadString);
+                                    System.out.println("Inner Receive: " + payloadString);
+                                    thisClient.setResponse(methodId, payloadString);
                                 }
                             }
                             break;
@@ -325,12 +345,13 @@ public class AsyncService
             }
         }
 
-        public void reSendToClient(UDPClientInstance instance) throws IOException
+        public void reSendToClient(UDPClientInstance instance, int methodId) throws IOException
         {
-            if (instance != null && instance.currentQuery != null)
+            if (instance != null && instance.responses.get(methodId) != null)
             {
-                System.out.println("Re-Send to client: " + instance.packetId);
-                DatagramPacket packet = new DatagramPacket(instance.currentQuery, instance.currentQuery.length, instance.IPAddress, instance.port);
+                System.out.println("Re-Send to client: " + methodId);
+                byte[] packetBytes = instance.currentQueries.get(methodId);
+                DatagramPacket packet = new DatagramPacket(packetBytes, packetBytes.length, instance.IPAddress, instance.port);
                 socket.send(packet);
             }
         }
@@ -369,10 +390,10 @@ public class AsyncService
                 outputStream.flush();
                 outputStream.close();
 
-                instance.currentQuery = bas.toByteArray();
-                instance.currentQuery[2] = (byte)payloadSize;
+                instance.setQuery(instance.packetId, bas.toByteArray(), (byte)payloadSize);
+                byte[] packetBytes = instance.currentQueries.get((int)instance.packetId);
 
-                DatagramPacket packet = new DatagramPacket(instance.currentQuery, instance.currentQuery.length, instance.IPAddress, instance.port);
+                DatagramPacket packet = new DatagramPacket(packetBytes, packetBytes.length, instance.IPAddress, instance.port);
 
                 socket.send(packet);
             }
