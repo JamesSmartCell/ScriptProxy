@@ -26,6 +26,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.Hash;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
@@ -248,10 +249,8 @@ public class AsyncService
                             //recover signature
                             if (thisClient != null && payload.length == 65 && !thisClient.validated)
                             {
-                                Sign.SignatureData sigData = sigFromByteArray(payload);
-                                //recover address from signature
-                                BigInteger recoveredKey = Sign.signedMessageToKey(rcvSessionToken, sigData);
-                                String recoveredAddr = "0x" + Keys.getAddress(recoveredKey);
+                                String recoveredAddr = recoverAddressFromSignature(rcvSessionToken, payload);
+                                if (recoveredAddr.length() == 0) break;
                                 if (thisClient.ethAddress.length() == 0)
                                 {
                                     System.out.println("Validate client: " + recoveredAddr);
@@ -301,10 +300,6 @@ public class AsyncService
                 {
                     e.printStackTrace();
                     running = false;
-                }
-                catch (SignatureException e)
-                {
-                    e.printStackTrace();
                 }
             }
         }
@@ -398,6 +393,24 @@ public class AsyncService
             writeLength += value.length();
             return writeLength;
         }
+    }
+
+    private String recoverAddressFromSignature(byte[] rcvSessionToken, byte[] payload)
+    {
+        String recoveredAddr = "";
+        try
+        {
+            Sign.SignatureData sigData = sigFromByteArray(payload);
+            //recover address from signature
+            BigInteger recoveredKey  = Sign.signedMessageToKey(rcvSessionToken, sigData);
+            recoveredAddr = "0x" + Keys.getAddress(recoveredKey);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        return recoveredAddr;
     }
 
     private void purgeHoldingClients(InetAddress address, int port)
