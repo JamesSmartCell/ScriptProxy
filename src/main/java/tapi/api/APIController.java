@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import tapi.api.service.AsyncService;
+
 
 @Controller
 @RequestMapping("/api")
@@ -46,6 +48,7 @@ public class APIController
     @Autowired
     private AsyncService service;
 
+    @CrossOrigin(origins= {"*"}, maxAge = 4800, allowCredentials = "false" )
     @RequestMapping(value = "/0x{Address}/{method}", method = { RequestMethod.GET, RequestMethod.POST })
     public ResponseEntity pushCheck(@PathVariable("Address") String address,
                                     @PathVariable("method") String method) throws InterruptedException, ExecutionException, IOException
