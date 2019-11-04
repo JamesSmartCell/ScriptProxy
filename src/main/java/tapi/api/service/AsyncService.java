@@ -11,6 +11,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.security.SignatureException;
 import java.util.Arrays;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bouncycastle.util.IPAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +95,41 @@ public class AsyncService
         }
 
         return CompletableFuture.completedFuture(instance.getResponse(methodId));
+    }
+
+    public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
+    {
+        boolean useFilter = isLocal(ipAddress);
+        InetAddress inetAddress = InetAddress.getByName(ipAddress);
+        String address = "No device found on this IP address: " + ipAddress;
+        byte[] filter;
+        if (useFilter)
+        {
+            filter = inetAddress.getAddress();
+            filter[3] = 0;
+            inetAddress = InetAddress.getByAddress(filter);
+        }
+
+        for (UDPClientInstance instance : holdingClients.values())
+        {
+            byte[] ipBytes = instance.IPAddress.getAddress();
+            if (useFilter) ipBytes[3] = 0;
+            InetAddress instanceAddr = InetAddress.getByAddress(ipBytes);
+            if (instanceAddr.equals(inetAddress))
+            {
+                address = instance.ethAddress;
+                break;
+            }
+        }
+
+        return CompletableFuture.completedFuture(address);
+    }
+
+    private boolean isLocal(String ipAddress) throws UnknownHostException
+    {
+        InetAddress inetAddress = InetAddress.getByName(ipAddress);
+        byte[] filter = inetAddress.getAddress();
+        return filter[0] == (byte) 192 && filter[1] == (byte) 168;
     }
 
     private class UDPClientInstance

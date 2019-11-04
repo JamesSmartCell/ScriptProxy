@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import javax.servlet.http.HttpServletRequest;
+
 import tapi.api.service.AsyncService;
 
 
@@ -60,6 +62,16 @@ public class APIController
         UriComponents comps = args.build();
         MultiValueMap<String, String> argMap = comps.getQueryParams();
         CompletableFuture<String> deviceAPIreturn = service.getResponse(address, method, argMap);
+        CompletableFuture.allOf(deviceAPIreturn).join();
+
+        return new ResponseEntity<>(deviceAPIreturn.get(), HttpStatus.CREATED);
+    }
+
+    @RequestMapping(value = "getEthAddress", method = { RequestMethod.GET, RequestMethod.POST })
+    public ResponseEntity getAddresses(HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
+    {
+        String ipAddress = request.getRemoteAddr();
+        CompletableFuture<String> deviceAPIreturn = service.getDeviceAddress(ipAddress);
         CompletableFuture.allOf(deviceAPIreturn).join();
 
         return new ResponseEntity<>(deviceAPIreturn.get(), HttpStatus.CREATED);
