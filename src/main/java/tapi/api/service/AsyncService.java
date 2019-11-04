@@ -14,7 +14,9 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.security.SignatureException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -99,10 +101,15 @@ public class AsyncService
 
     public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
     {
-        boolean useFilter = isLocal(ipAddress);
-        InetAddress inetAddress = InetAddress.getByName(ipAddress);
-        String address = "No device found on this IP address: " + ipAddress;
-        byte[] filter;
+        //List<String> ethAddresses = new ArrayList<>();
+        boolean      useFilter    = isLocal(ipAddress);
+        InetAddress  inetAddress  = InetAddress.getByName(ipAddress);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Devices found on IP address: ");
+        sb.append(ipAddress);
+        byte[]       filter;
+        boolean foundAddr = false;
+
         if (useFilter)
         {
             filter = inetAddress.getAddress();
@@ -117,12 +124,18 @@ public class AsyncService
             InetAddress instanceAddr = InetAddress.getByAddress(ipBytes);
             if (instanceAddr.equals(inetAddress))
             {
-                address = instance.ethAddress;
-                break;
+                foundAddr = true;
+                sb.append("</br>");
+                sb.append(instance.ethAddress);
             }
         }
 
-        return CompletableFuture.completedFuture(address);
+        if (!foundAddr)
+        {
+            sb.append("</br>No devices");
+        }
+
+        return CompletableFuture.completedFuture(sb.toString());
     }
 
     private boolean isLocal(String ipAddress) throws UnknownHostException
