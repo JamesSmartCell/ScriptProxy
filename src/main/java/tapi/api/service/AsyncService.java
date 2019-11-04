@@ -101,7 +101,6 @@ public class AsyncService
 
     public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
     {
-        //List<String> ethAddresses = new ArrayList<>();
         boolean      useFilter    = isLocal(ipAddress);
         InetAddress  inetAddress  = InetAddress.getByName(ipAddress);
         StringBuilder sb = new StringBuilder();
@@ -110,6 +109,8 @@ public class AsyncService
         byte[]       filter;
         boolean foundAddr = false;
 
+        filterConnections();
+
         if (useFilter)
         {
             filter = inetAddress.getAddress();
@@ -117,7 +118,7 @@ public class AsyncService
             inetAddress = InetAddress.getByAddress(filter);
         }
 
-        for (UDPClientInstance instance : holdingClients.values())
+        for (UDPClientInstance instance : addressToClient.values())
         {
             byte[] ipBytes = instance.IPAddress.getAddress();
             if (useFilter) ipBytes[3] = 0;
@@ -208,8 +209,8 @@ public class AsyncService
         }
     }
 
-    Map<BigInteger, UDPClientInstance> holdingClients = new ConcurrentHashMap<>();
-    Map<String, UDPClientInstance> clients = new ConcurrentHashMap<>();
+    Map<BigInteger, UDPClientInstance> tokenToClient = new ConcurrentHashMap<>();
+    Map<String, UDPClientInstance> addressToClient = new ConcurrentHashMap<>();
 
     private class UDPClient extends Thread
     {
@@ -248,14 +249,16 @@ public class AsyncService
                     byte type = inputStream.readByte();             //1 byte
                     inputStream.read(rcvSessionToken);              //8 bytes
                     BigInteger tokenValue = Numeric.toBigInt(rcvSessionToken);
-                    int length = (inputStream.readByte() & 0xFF);       //1 byte (payload length)
+                    int length = (inputStream.readByte() & 0xFF);   //1 byte (payload length)
                     byte[] payload = new byte[length];
                     inputStream.read(payload);                      //payload bytes
                     UDPClientInstance thisClient;
                     inputStream.close();
                     bas.close();
 
-                    thisClient = holdingClients.get(tokenValue);
+                    filterConnections();
+
+                    thisClient = tokenToClient.get(tokenValue);
 
                     switch (type)
                     {
@@ -270,7 +273,7 @@ public class AsyncService
                             {
                                 if ((thisClient.lastRenewal + 30*1000) < System.currentTimeMillis())
                                 {
-                                    holdingClients.remove(tokenValue);
+                                    tokenToClient.remove(tokenValue);
                                     System.out.println("Renew Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                                     tokenValue = thisClient.generateNewSessionToken(secRand);
                                 }
@@ -289,8 +292,7 @@ public class AsyncService
                             }
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
-                            holdingClients.put(tokenValue, thisClient);
-                            //connectionMap.put(pathStr, thisClient);
+                            tokenToClient.put(tokenValue, thisClient);
                             System.out.println("New Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
                         case 1: //address
@@ -320,8 +322,8 @@ public class AsyncService
                                 thisClient.validated = true;
                                 System.out.println("Validated: " + recoveredAddr);
                                 purgeHoldingClients(address, port);
-                                clients.put(recoveredAddr.toLowerCase(), thisClient);
-                                holdingClients.put(tokenValue, thisClient);
+                                addressToClient.put(recoveredAddr.toLowerCase(), thisClient);
+                                tokenToClient.put(tokenValue, thisClient);
                                 sendToClient(thisClient, (byte)1, thisClient.sessionToken);
                                 System.out.println("New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                             }
@@ -334,7 +336,7 @@ public class AsyncService
 
                             if (thisClient != null)
                             {
-                                thisClient = clients.get(thisClient.ethAddress);
+                                thisClient = addressToClient.get(thisClient.ethAddress);
                                 if (thisClient != null && thisClient.currentQueries.containsKey(methodId))
                                 {
                                     System.out.println("Inner Receive: " + payloadString);
@@ -393,7 +395,7 @@ public class AsyncService
         public UDPClientInstance sendToClient(String address, String method,
                                               MultiValueMap<String, String> argMap) throws IOException
         {
-            UDPClientInstance instance = clients.get(address.toLowerCase());
+            UDPClientInstance instance = addressToClient.get(address.toLowerCase());
             if (instance != null)
             {
                 //send message
@@ -475,12 +477,12 @@ public class AsyncService
 
     private boolean removeMatchingClients(InetAddress address, int port)
     {
-        for (BigInteger token : holdingClients.keySet())
+        for (BigInteger token : tokenToClient.keySet())
         {
-            UDPClientInstance instance = holdingClients.get(token);
+            UDPClientInstance instance = tokenToClient.get(token);
             if (instance.port == port && address.equals(instance.IPAddress))
             {
-                holdingClients.remove(token);
+                tokenToClient.remove(token);
                 return true;
             }
         }
@@ -500,5 +502,20 @@ public class AsyncService
         return new Sign.SignatureData(subv, subrRev, subsRev);
     }
 
+    private void filterConnections()
+    {
+        for (BigInteger key : tokenToClient.keySet())
+        {
+            UDPClientInstance instance = tokenToClient.get(key);
+            long connectionAge = (System.currentTimeMillis() - instance.lastConnection) / 1000;
+            if (connectionAge > 120)
+            {
+                System.out.println("Remove old connection: " + instance.ethAddress);
+                tokenToClient.remove(key);
+                addressToClient.remove(instance.ethAddress);
+                break;
+            }
+        }
+    }
 }
 
