@@ -1,6 +1,17 @@
 package tapi.api.service;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import org.web3j.crypto.Keys;
+import org.web3j.crypto.Sign;
+import org.web3j.utils.Numeric;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -13,28 +24,10 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.security.SignatureException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.bouncycastle.util.IPAddress;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
-import org.web3j.abi.datatypes.Address;
-import org.web3j.crypto.Hash;
-import org.web3j.crypto.Keys;
-import org.web3j.crypto.Sign;
-import org.web3j.utils.Numeric;
 
 @Service
 public class AsyncService
@@ -74,7 +67,7 @@ public class AsyncService
         UDPClientInstance instance = client.sendToClient(address, method, argMap);
         if (instance == null) return CompletableFuture.completedFuture("null");
         int resendIntervalCounter = 0;
-        int resendCount = 5;
+        int resendCount = 10;
         int methodId = instance.packetId;
         while (!instance.hasResponse(methodId) && resendCount > 0)
         {
@@ -152,8 +145,8 @@ public class AsyncService
         public InetAddress IPAddress;
         public int port;
         public byte packetId;
-        public long lastConnection;
-        public long lastRenewal;
+        public long validationTime;
+        public long sessionRenewTime;
         public byte[] sessionToken;
 
         public boolean validated;
@@ -167,18 +160,18 @@ public class AsyncService
             port = p;
             validated = false;
             responses = new ConcurrentHashMap<>();
-            lastRenewal = 0;
             packetId = 0;
             currentQueries = new ConcurrentHashMap<>();
+            sessionRenewTime = System.currentTimeMillis();
 
-            lastConnection = System.currentTimeMillis();
+            validationTime = 0;
         }
 
         public BigInteger generateNewSessionToken(SecureRandom secRand)
         {
             BigInteger tokenValue = BigInteger.valueOf(secRand.nextLong());
             sessionToken = Numeric.toBytesPadded(tokenValue, 8);
-            lastRenewal = System.currentTimeMillis();
+            sessionRenewTime = System.currentTimeMillis();
             validated = false;
             return Numeric.toBigInt(sessionToken);
         }
@@ -206,6 +199,12 @@ public class AsyncService
         {
             packet[2] = payloadSize;
             currentQueries.put((int)packetId, packet);
+        }
+
+        // Connection is valid if recently validated, or is less than 60 seconds since last validation (to handle instances where the instruction comes between validation sessions)
+        public boolean isValid()
+        {
+            return validated || (System.currentTimeMillis() - validationTime) < 60 * 1000;
         }
     }
 
@@ -269,37 +268,23 @@ public class AsyncService
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
                                 System.out.println("Issue new token: " + Numeric.toHexString(thisClient.sessionToken));
                             }
-                            else
+                            else if (System.currentTimeMillis() > (thisClient.validationTime + 10 * 1000))
                             {
-                                if ((thisClient.lastRenewal + 30*1000) < System.currentTimeMillis())
-                                {
-                                    tokenToClient.remove(tokenValue);
-                                    System.out.println("Renew Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
-                                    tokenValue = thisClient.generateNewSessionToken(secRand);
-                                }
-                                else if (thisClient.validated)
-                                {
-                                    System.out.println("Resend Validation: " + Numeric.toHexString(thisClient.sessionToken));
-                                    sendToClient(thisClient, (byte)1, thisClient.sessionToken);
-                                    break;
-                                }
-                                else
-                                {
-                                    System.out.println("Ignore renewal: " + Numeric.toHexString(thisClient.sessionToken));
-                                    if (!thisClient.validated) sendToClient(thisClient, (byte)0, thisClient.sessionToken);
-                                    break;
-                                }
+                                tokenToClient.remove(tokenValue);
+                                System.out.println("Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
+                                tokenValue = thisClient.generateNewSessionToken(secRand);
                             }
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
                             tokenToClient.put(tokenValue, thisClient);
-                            System.out.println("New Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
+                            System.out.println("Send Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
+
                         case 1: //address
                             System.out.println("Receive Verification From: " + Numeric.toHexString(rcvSessionToken));
 
                             //recover signature
-                            if (thisClient != null && payload.length == 65 && !thisClient.validated)
+                            if (thisClient != null && payload.length == 65)
                             {
                                 String recoveredAddr = recoverAddressFromSignature(rcvSessionToken, payload);
                                 if (recoveredAddr.length() == 0) break;
@@ -318,16 +303,20 @@ public class AsyncService
                                     break;
                                 }
 
-                                thisClient.lastConnection = System.currentTimeMillis();
+                                if (!thisClient.validated)
+                                {
+                                    System.out.println("Validated: " + recoveredAddr);
+                                    thisClient.validationTime = System.currentTimeMillis();
+                                    System.out.println("New Session T: " + Numeric.toHexString(thisClient.sessionToken));
+                                }
                                 thisClient.validated = true;
-                                System.out.println("Validated: " + recoveredAddr);
                                 purgeHoldingClients(address, port);
                                 addressToClient.put(recoveredAddr.toLowerCase(), thisClient);
                                 tokenToClient.put(tokenValue, thisClient);
                                 sendToClient(thisClient, (byte)1, thisClient.sessionToken);
-                                System.out.println("New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                             }
                             break;
+
                         case 2:
                             int methodId = payload[0];
                             payload = Arrays.copyOfRange(payload, 1, payload.length);
@@ -336,11 +325,15 @@ public class AsyncService
 
                             if (thisClient != null)
                             {
-                                thisClient = addressToClient.get(thisClient.ethAddress);
-                                if (thisClient != null && thisClient.currentQueries.containsKey(methodId))
+                                if (thisClient.isValid() && thisClient.currentQueries.containsKey(methodId))
                                 {
                                     System.out.println("Inner Receive: " + payloadString);
                                     thisClient.setResponse(methodId, payloadString);
+                                }
+                                else
+                                {
+                                    System.out.println("Receive for invalid client: " + payloadString);
+                                    thisClient.setResponse(methodId, "fail: Invalid Connection");
                                 }
                             }
                             break;
@@ -507,7 +500,7 @@ public class AsyncService
         for (BigInteger key : tokenToClient.keySet())
         {
             UDPClientInstance instance = tokenToClient.get(key);
-            long connectionAge = (System.currentTimeMillis() - instance.lastConnection) / 1000;
+            long connectionAge = (System.currentTimeMillis() - instance.sessionRenewTime) / 1000;
             if (connectionAge > 120)
             {
                 System.out.println("Remove old connection: " + instance.ethAddress);
