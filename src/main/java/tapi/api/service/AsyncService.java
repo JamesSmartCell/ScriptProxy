@@ -24,6 +24,8 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -266,22 +268,22 @@ public class AsyncService
                             {
                                 thisClient = new UDPClientInstance(address, port, "");
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
-                                System.out.println("Issue new token: " + Numeric.toHexString(thisClient.sessionToken));
+                                log(address, "Issue new token: " + Numeric.toHexString(thisClient.sessionToken));
                             }
                             else if (System.currentTimeMillis() > (thisClient.validationTime + 10 * 1000))
                             {
                                 tokenToClient.remove(tokenValue);
-                                System.out.println("Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
+                                log(address, "Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
                             }
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
                             tokenToClient.put(tokenValue, thisClient);
-                            System.out.println("Send Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
+                            log(address, "Send Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
 
                         case 1: //address
-                            System.out.println("Receive Verification From: " + Numeric.toHexString(rcvSessionToken));
+                            log(address, "Receive Verification From: " + Numeric.toHexString(rcvSessionToken));
 
                             //recover signature
                             if (thisClient != null && payload.length == 65)
@@ -290,24 +292,24 @@ public class AsyncService
                                 if (recoveredAddr.length() == 0) break;
                                 if (thisClient.ethAddress.length() == 0)
                                 {
-                                    System.out.println("Validate client: " + recoveredAddr);
+                                    log(address, "Validate client: " + recoveredAddr);
                                     thisClient.ethAddress = recoveredAddr;
                                 }
                                 else if (recoveredAddr.equalsIgnoreCase(thisClient.ethAddress))
                                 {
-                                    System.out.println("Renew client.");
+                                    log(address, "Renew client.");
                                 }
                                 else
                                 {
-                                    System.out.println("Reject.");
+                                    log(address, "Reject.");
                                     break;
                                 }
 
                                 if (!thisClient.validated)
                                 {
-                                    System.out.println("Validated: " + recoveredAddr);
+                                    log(address, "Validated: " + recoveredAddr);
                                     thisClient.validationTime = System.currentTimeMillis();
-                                    System.out.println("New Session T: " + Numeric.toHexString(thisClient.sessionToken));
+                                    log(address, "New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                                 }
                                 thisClient.validated = true;
                                 purgeHoldingClients(address, port);
@@ -321,13 +323,13 @@ public class AsyncService
                             int methodId = payload[0];
                             payload = Arrays.copyOfRange(payload, 1, payload.length);
                             String payloadString = new String(payload);
-                            System.out.println("RCV Message: " + Numeric.toHexString(rcvSessionToken));
+                            log(address, "RCV Message: " + Numeric.toHexString(rcvSessionToken));
 
                             if (thisClient != null)
                             {
                                 if (thisClient.isValid() && thisClient.currentQueries.containsKey(methodId))
                                 {
-                                    System.out.println("Inner Receive: " + payloadString);
+                                    log(address, "Inner Receive: " + payloadString);
                                     thisClient.setResponse(methodId, payloadString);
                                 }
                             }
@@ -504,6 +506,13 @@ public class AsyncService
                 break;
             }
         }
+    }
+
+    private void log(InetAddress addr, String msg)
+    {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
+        LocalDateTime     now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + ":" + addr.getHostAddress() + ": " + msg);
     }
 }
 
