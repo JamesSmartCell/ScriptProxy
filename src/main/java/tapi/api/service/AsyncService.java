@@ -268,7 +268,7 @@ public class AsyncService
                             {
                                 thisClient = new UDPClientInstance(address, port, "");
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
-                                log(address, "Issue new token: " + Numeric.toHexString(thisClient.sessionToken));
+                                log(address, "Issue new token: (" + Numeric.toHexString(rcvSessionToken) + ") " + Numeric.toHexString(thisClient.sessionToken));
                             }
                             else if (System.currentTimeMillis() > (thisClient.validationTime + 10 * 1000))
                             {
