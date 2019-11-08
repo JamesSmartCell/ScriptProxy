@@ -502,7 +502,7 @@ public class AsyncService
             {
                 System.out.println("Remove old connection: " + instance.ethAddress);
                 tokenToClient.remove(key);
-                addressToClient.remove(instance.ethAddress);
+                //addressToClient.remove(instance.ethAddress);
                 break;
             }
         }
