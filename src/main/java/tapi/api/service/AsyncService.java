@@ -312,7 +312,7 @@ public class AsyncService
                                     log(address, "New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                                 }
                                 thisClient.validated = true;
-                                purgeHoldingClients(address, port);
+                                //purgeHoldingClients(address, port);
                                 addressToClient.put(recoveredAddr.toLowerCase(), thisClient);
                                 tokenToClient.put(tokenValue, thisClient);
                                 sendToClient(thisClient, (byte)1, thisClient.sessionToken);
