@@ -270,7 +270,7 @@ public class AsyncService
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
                                 log(address, "Issue new token: (" + Numeric.toHexString(rcvSessionToken) + ") " + Numeric.toHexString(thisClient.sessionToken));
                             }
-                            else if (System.currentTimeMillis() > (thisClient.validationTime + 10 * 1000))
+                            else if (System.currentTimeMillis() > (thisClient.sessionRenewTime + 10 * 1000))
                             {
                                 //tokenToClient.remove(tokenValue);
                                 log(address, "Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
