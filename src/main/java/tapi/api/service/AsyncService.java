@@ -330,11 +330,6 @@ public class AsyncService
                                     System.out.println("Inner Receive: " + payloadString);
                                     thisClient.setResponse(methodId, payloadString);
                                 }
-                                else
-                                {
-                                    System.out.println("Receive for invalid client: " + payloadString);
-                                    thisClient.setResponse(methodId, "fail: Invalid Connection");
-                                }
                             }
                             break;
                         default:
