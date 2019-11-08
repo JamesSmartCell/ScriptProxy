@@ -276,6 +276,11 @@ public class AsyncService
                                 log(address, "Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
                             }
+                            else
+                            {
+                                sendToClient(thisClient, (byte)0, thisClient.sessionToken);
+                                break;
+                            }
 
                             sendToClient(thisClient, (byte)0, thisClient.sessionToken);
                             tokenToClient.put(tokenValue, thisClient);
