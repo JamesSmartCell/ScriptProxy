@@ -272,7 +272,7 @@ public class AsyncService
                             }
                             else if (System.currentTimeMillis() > (thisClient.validationTime + 10 * 1000))
                             {
-                                tokenToClient.remove(tokenValue);
+                                //tokenToClient.remove(tokenValue);
                                 log(address, "Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
                             }
