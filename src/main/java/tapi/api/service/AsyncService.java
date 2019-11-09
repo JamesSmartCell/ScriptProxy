@@ -150,6 +150,7 @@ public class AsyncService
         public long validationTime;
         public long sessionRenewTime;
         public byte[] sessionToken;
+        public int unknownCount = 0;
 
         public boolean validated;
         private Map<Integer, String> responses;
@@ -266,23 +267,31 @@ public class AsyncService
                         case 0: //request a random
                             if (thisClient == null)
                             {
-                                thisClient = new UDPClientInstance(address, port, "");
-                                tokenValue = thisClient.generateNewSessionToken(secRand);
-                                log(address, "Issue new token: (" + Numeric.toHexString(rcvSessionToken) + ") " + Numeric.toHexString(thisClient.sessionToken));
+                                if (tokenValue.equals(BigInteger.ZERO)) //new client
+                                {
+                                    thisClient = new UDPClientInstance(address, port, "");
+                                    tokenValue = thisClient.generateNewSessionToken(secRand);
+                                    log(address, "New Client login: " + Numeric.toHexString(thisClient.sessionToken));
+                                }
+                                else
+                                {
+                                    log(address, "Unknown client: " + Numeric.toHexString(rcvSessionToken));
+                                    break;
+                                }
                             }
                             else if (System.currentTimeMillis() > (thisClient.sessionRenewTime + 10 * 1000))
                             {
-                                //tokenToClient.remove(tokenValue);
-                                log(address, "Renew Connection Token: Old token: " + Numeric.toHexString(thisClient.sessionToken));
                                 tokenValue = thisClient.generateNewSessionToken(secRand);
+                                log(address, "Renew Connection Token: Old token: (" + Numeric.toHexString(rcvSessionToken) + ")" + Numeric.toHexString(thisClient.sessionToken));
                             }
                             else
                             {
-                                sendToClient(thisClient, (byte)0, thisClient.sessionToken);
+                                log(address, "Re-Send Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
+                                sendToClient(thisClient, (byte)0, thisClient.sessionToken, rcvSessionToken);
                                 break;
                             }
 
-                            sendToClient(thisClient, (byte)0, thisClient.sessionToken);
+                            sendToClient(thisClient, (byte)0, thisClient.sessionToken, rcvSessionToken);
                             tokenToClient.put(tokenValue, thisClient);
                             log(address, "Send Connection Token: " + Numeric.toHexString(thisClient.sessionToken));
                             break;
@@ -315,9 +324,9 @@ public class AsyncService
                                     log(address, "Validated: " + recoveredAddr);
                                     thisClient.validationTime = System.currentTimeMillis();
                                     log(address, "New Session T: " + Numeric.toHexString(thisClient.sessionToken));
+                                    thisClient.unknownCount = 0;
                                 }
                                 thisClient.validated = true;
-                                //purgeHoldingClients(address, port);
                                 addressToClient.put(recoveredAddr.toLowerCase(), thisClient);
                                 tokenToClient.put(tokenValue, thisClient);
                                 sendToClient(thisClient, (byte)1, thisClient.sessionToken);
@@ -351,16 +360,23 @@ public class AsyncService
             }
         }
 
-        //transmit back
         public void sendToClient(UDPClientInstance instance, byte type, byte[] stuffToSend) throws IOException
+        {
+            sendToClient(instance, type, stuffToSend, null);
+        }
+
+        //transmit back
+        public void sendToClient(UDPClientInstance instance, byte type, byte[] stuffToSend, byte[] extraToSend) throws IOException
         {
             ByteArrayOutputStream bas          = new ByteArrayOutputStream();
             DataOutputStream      outputStream = new DataOutputStream(bas);
 
             int totalPacketLength = 2 + stuffToSend.length;
+            if (extraToSend != null) totalPacketLength += extraToSend.length;
             outputStream.writeByte(type);
-            outputStream.writeByte((byte)stuffToSend.length);
+            outputStream.writeByte((byte)totalPacketLength - 2);
             outputStream.write(stuffToSend);
+            if (extraToSend != null) outputStream.write(extraToSend);
             outputStream.flush();
             outputStream.close();
 
@@ -507,7 +523,6 @@ public class AsyncService
             {
                 System.out.println("Remove old connection: " + instance.ethAddress);
                 tokenToClient.remove(key);
-                //addressToClient.remove(instance.ethAddress);
                 break;
             }
         }
