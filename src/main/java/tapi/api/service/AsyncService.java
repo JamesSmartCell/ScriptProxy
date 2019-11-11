@@ -262,6 +262,12 @@ public class AsyncService
 
                     thisClient = tokenToClient.get(tokenValue);
 
+                    if (thisClient != null)
+                    {
+                        thisClient.IPAddress = address;
+                        thisClient.port = port;
+                    }
+
                     switch (type)
                     {
                         case 0: //request a random
@@ -394,7 +400,7 @@ public class AsyncService
 
         public void reSendToClient(UDPClientInstance instance, int methodId) throws IOException
         {
-            if (instance != null && instance.responses.get(methodId) != null)
+            if (instance != null && instance.currentQueries.get(methodId) != null)
             {
                 System.out.println("Re-Send to client: " + methodId);
                 byte[] packetBytes = instance.currentQueries.get(methodId);
