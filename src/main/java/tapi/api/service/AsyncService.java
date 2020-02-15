@@ -339,6 +339,8 @@ public class AsyncService
                                 else if (recoveredAddr.equalsIgnoreCase(thisClient.ethAddress))
                                 {
                                     log(address, "Renew client.");
+                                    //thisClient.IPAddress = address;
+                                    //thisClient.port = port;
                                 }
                                 else
                                 {
@@ -352,10 +354,11 @@ public class AsyncService
                                     thisClient.validationTime = System.currentTimeMillis();
                                     log(address, "New Session T: " + Numeric.toHexString(thisClient.sessionToken));
                                     thisClient.unknownCount = 0;
+                                    thisClient.validated = true;
+                                    addToAddresses(recoveredAddr.toLowerCase(), thisClient);
+                                    tokenToClient.put(tokenValue, thisClient);
                                 }
-                                thisClient.validated = true;
-                                addToAddresses(recoveredAddr.toLowerCase(), thisClient);
-                                tokenToClient.put(tokenValue, thisClient);
+
                                 sendToClient(thisClient, SIGNATURE_VALIDATE, thisClient.sessionToken);
                             }
                             break;
