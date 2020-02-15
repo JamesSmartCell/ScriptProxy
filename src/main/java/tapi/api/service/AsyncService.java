@@ -408,7 +408,7 @@ public class AsyncService
                 //check for out of date client
                 if (addrList.size() >= 3)
                 {
-                    UDPClientInstance oldClient = addrList.get(2);
+                    UDPClientInstance oldClient = addrList.get(0);
                     log(oldClient.IPAddress, "Removing client from addr map #" + Numeric.toHexString(oldClient.sessionToken));
                     addrList.remove(oldClient);
                     //remove this guy from main list too
