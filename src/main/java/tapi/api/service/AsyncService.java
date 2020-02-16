@@ -28,12 +28,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -41,10 +37,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AsyncService
 {
     private List<UDPClient> udpClients;
+    Map<BigInteger, UDPClientInstance> tokenToClient = new ConcurrentHashMap<>();
+    Map<String, List<UDPClientInstance>> addressToClient = new ConcurrentHashMap<>();
+    Map<String, Integer> IoTAddrToQueryID = new ConcurrentHashMap<>();
+
     private static Logger log = LoggerFactory.getLogger(AsyncService.class);
 
     private static int UDP_PORT = 5001;
     private static int UDP_TOP_PORT = 5004;
+
+    private UDPClientInstance getLatestClient(String ethAddress)
+    {
+        List<UDPClientInstance> clients = addressToClient.get(ethAddress);
+        if (clients != null && clients.size() > 0) return clients.get(clients.size() - 1);
+        else return null;
+    }
 
     @Autowired
     private RestTemplate restTemplate;
@@ -79,11 +86,9 @@ public class AsyncService
     public CompletableFuture<String> getResponse(String address, String method,
                                                  MultiValueMap<String, String> argMap) throws InterruptedException, IOException
     {
-        UDPClient client = findClentWithDevice(address.toLowerCase());
-        if (client == null) return CompletableFuture.completedFuture("No device found");
-        UDPClientInstance instance = client.getLatestClient(address.toLowerCase());
+        UDPClientInstance instance = getLatestClient(address.toLowerCase());
         if (instance == null) return CompletableFuture.completedFuture("No device found");
-        int methodId  = client.sendToClient(instance, method, argMap);
+        int methodId  = instance.connectedClient.sendToClient(instance, method, argMap);
         if (methodId == -1) return CompletableFuture.completedFuture("API send error");
         int resendIntervalCounter = 0;
         int resendCount = 10;
@@ -91,11 +96,11 @@ public class AsyncService
         while (!responseReceived && resendCount > 0)
         {
             Thread.sleep(10);
-            instance = client.getLatestClient(address.toLowerCase());
+            instance = getLatestClient(address.toLowerCase());
             if (resendIntervalCounter++ > 100)
             {
                 resendIntervalCounter = 0;
-                client.reSendToClient(instance, methodId);
+                instance.connectedClient.reSendToClient(instance, methodId);
                 resendCount--;
             }
 
@@ -112,17 +117,6 @@ public class AsyncService
         }
 
         return CompletableFuture.completedFuture(instance.getResponse(methodId));
-    }
-
-    private UDPClient findClentWithDevice(String addr)
-    {
-        for (UDPClient client : udpClients)
-        {
-            UDPClientInstance instance = client.getLatestClient(addr);
-            if (instance != null) return client;
-        }
-
-        return null;
     }
 
     public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
@@ -182,6 +176,7 @@ public class AsyncService
         public long sessionRenewTime;
         public byte[] sessionToken;
         public int unknownCount = 0;
+        public UDPClient connectedClient;
 
         public boolean validated;
         private Map<Integer, String> responses;
@@ -240,10 +235,6 @@ public class AsyncService
             return validated || (System.currentTimeMillis() - validationTime) < 60 * 1000;
         }
     }
-
-    Map<BigInteger, UDPClientInstance> tokenToClient = new ConcurrentHashMap<>();
-    Map<String, List<UDPClientInstance>> addressToClient = new ConcurrentHashMap<>();
-    Map<String, Integer> IoTAddrToQueryID = new ConcurrentHashMap<>();
 
     private static final int CLIENT_REQUEST_AUTHENTICATION = 0;
     private static final int CLIENT_AUTHENTICATION = 1;
@@ -313,6 +304,7 @@ public class AsyncService
                             thisClient.port = port;
                             thisClient.IPAddress = address;
                         }
+                        thisClient.connectedClient = this;
                     }
 
                     switch (type)
@@ -441,13 +433,6 @@ public class AsyncService
                 }
             }
             addrList.add(thisClient);
-        }
-
-        private UDPClientInstance getLatestClient(String ethAddress)
-        {
-            List<UDPClientInstance> clients = addressToClient.get(ethAddress);
-            if (clients != null && clients.size() > 0) return clients.get(clients.size() - 1);
-            else return null;
         }
 
         public void sendToClient(UDPClientInstance instance, byte type, byte[] stuffToSend) throws IOException
