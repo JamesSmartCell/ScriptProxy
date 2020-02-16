@@ -40,10 +40,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class AsyncService
 {
-    private UDPClient client;
+    private List<UDPClient> udpClients;
     private static Logger log = LoggerFactory.getLogger(AsyncService.class);
 
     private static int UDP_PORT = 5001;
+    private static int UDP_TOP_PORT = 5004;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -55,11 +56,17 @@ public class AsyncService
 
     public AsyncService()
     {
-        client = new UDPClient();
+        udpClients = new ArrayList<>();
+        //client = new UDPClient();
         try
         {
-            client.init();
-            client.start();
+            for (int port = UDP_PORT; port <= UDP_TOP_PORT; port++)
+            {
+                UDPClient client = new UDPClient();
+                client.init(port);
+                client.start();
+                udpClients.add(client);
+            }
         }
         catch (Exception e)
         {
@@ -72,6 +79,8 @@ public class AsyncService
     public CompletableFuture<String> getResponse(String address, String method,
                                                  MultiValueMap<String, String> argMap) throws InterruptedException, IOException
     {
+        UDPClient client = findClentWithDevice(address.toLowerCase());
+        if (client == null) return CompletableFuture.completedFuture("No device found");
         UDPClientInstance instance = client.getLatestClient(address.toLowerCase());
         if (instance == null) return CompletableFuture.completedFuture("No device found");
         int methodId  = client.sendToClient(instance, method, argMap);
@@ -103,6 +112,17 @@ public class AsyncService
         }
 
         return CompletableFuture.completedFuture(instance.getResponse(methodId));
+    }
+
+    private UDPClient findClentWithDevice(String addr)
+    {
+        for (UDPClient client : udpClients)
+        {
+            UDPClientInstance instance = client.getLatestClient(addr);
+            if (instance != null) return client;
+        }
+
+        return null;
     }
 
     public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
@@ -244,12 +264,12 @@ public class AsyncService
         private boolean running;
         private SecureRandom secRand;
 
-        public void init() throws SocketException
+        public void init(int port) throws SocketException
         {
             receiveData  = new byte[1024];
             secRand = new SecureRandom();
             secRand.setSeed(System.currentTimeMillis());
-            socket = new DatagramSocket(UDP_PORT);
+            socket = new DatagramSocket(port);
         }
 
         public void run()
@@ -339,8 +359,6 @@ public class AsyncService
                                 else if (recoveredAddr.equalsIgnoreCase(thisClient.ethAddress))
                                 {
                                     log(address, "Renew client.");
-                                    //thisClient.IPAddress = address;
-                                    //thisClient.port = port;
                                 }
                                 else
                                 {
