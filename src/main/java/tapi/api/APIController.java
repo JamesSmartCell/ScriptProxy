@@ -17,9 +17,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletRequest;
 
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 import tapi.api.service.AsyncService;
 
 
@@ -27,6 +30,8 @@ import tapi.api.service.AsyncService;
 @RequestMapping("/api")
 public class APIController
 {
+    private static final int CHECK_CONNECTION_INTERVAL = 1; //check for timeouts once per minute
+
     private class APIData
     {
         public String fullApiCall;
@@ -44,7 +49,8 @@ public class APIController
     @Autowired
     public APIController()
     {
-
+        Observable.interval(CHECK_CONNECTION_INTERVAL, CHECK_CONNECTION_INTERVAL, TimeUnit.MINUTES)
+                .doOnNext(l -> service.checkServices()).subscribe();
     }
 
     @Autowired
