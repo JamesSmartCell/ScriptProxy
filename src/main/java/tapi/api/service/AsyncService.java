@@ -32,7 +32,7 @@ public class AsyncService
     private Map<String, List<UDPClientInstance>> addressToClient = new ConcurrentHashMap<>();
     private Map<String, Integer> IoTAddrToQueryID = new ConcurrentHashMap<>();
 
-    private final static int UDP_PORT = 5001;
+    private final static int UDP_PORT = 5000;
     private final static int UDP_TOP_PORT = 5004;
     private final static long CONNECTION_CLEANUP_TIME = 5L * 60L * 1000L; //after 5 minutes of silence remove a connection
 
@@ -81,7 +81,7 @@ public class AsyncService
         int methodId  = instance.sendToClient(method, argMap);
         if (methodId == -1) return CompletableFuture.completedFuture("API send error");
         int resendIntervalCounter = 0;
-        int resendCount = 16; //resend packet 16 times before timeout - attempt connection for 15 * 750ms = 12 seconds timeout
+        int resendCount = 30; //resend packet 20 times before timeout - attempt connection for 30 * 500ms = 15 seconds timeout
         boolean responseReceived = false;
         while (!responseReceived && resendCount > 0)
         {
@@ -89,7 +89,7 @@ public class AsyncService
             instance = getLatestClient(address.toLowerCase());
             if (instance != null)
             {
-                if (resendIntervalCounter++ > 75) //resend every 750 ms (thread sleep time = 10ms)
+                if (resendIntervalCounter++ > 50) //resend every 500 ms (thread sleep time = 10ms)
                 {
                     resendIntervalCounter = 0;
                     instance.reSendToClient(methodId);
