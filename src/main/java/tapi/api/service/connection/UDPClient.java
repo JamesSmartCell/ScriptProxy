@@ -349,4 +349,9 @@ public class UDPClient extends Thread
         byte[] subsRev = Arrays.copyOfRange(sig, 32, 64);
         return new Sign.SignatureData(subv, subrRev, subsRev);
     }
+
+    public int matchMethod(UDPClientInstance instance, String method)
+    {
+        return service.getLatestQueryID(instance.getEthAddress());
+    }
 }

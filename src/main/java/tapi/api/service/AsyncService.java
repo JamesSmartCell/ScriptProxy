@@ -74,11 +74,24 @@ public class AsyncService
     }
 
     public CompletableFuture<String> getResponse(String address, String method,
-                                                 MultiValueMap<String, String> argMap) throws InterruptedException, IOException
+                                                 MultiValueMap<String, String> argMap, String origin) throws InterruptedException, IOException
     {
         UDPClientInstance instance = getLatestClient(address.toLowerCase());
         if (instance == null) return CompletableFuture.completedFuture("No device found");
-        int methodId  = instance.sendToClient(method, argMap);
+
+        //is there an identical call in progress from the same client?
+        int methodId;
+        int checkId = instance.getMatchingQuery(origin, method);
+        if (checkId != -1)
+        {
+            methodId = checkId;
+            System.out.println("Duplicate MethodID: " + checkId);
+        }
+        else
+        {
+            methodId  = instance.sendToClient(origin, method, argMap);
+        }
+
         if (methodId == -1) return CompletableFuture.completedFuture("API send error");
         int resendIntervalCounter = 0;
         int resendCount = 30; //resend packet 20 times before timeout - attempt connection for 30 * 500ms = 15 seconds timeout
@@ -110,7 +123,7 @@ public class AsyncService
         }
         else
         {
-            System.out.println("Received: (" + methodId + ") " + response);
+            System.out.println("Received: (" + methodId + ") " + response + ((checkId > -1) ? " (*)" : ""));
         }
 
         return CompletableFuture.completedFuture(response);

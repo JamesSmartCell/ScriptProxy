@@ -56,18 +56,20 @@ public class APIController
     @Autowired
     private AsyncService service;
 
-    @CrossOrigin(origins= {"*"}, maxAge = 4800, allowCredentials = "false" )
+    @CrossOrigin(origins= {"*"}, maxAge = 10000, allowCredentials = "false" )
     @RequestMapping(value = "/0x{Address}/{method}", method = { RequestMethod.GET, RequestMethod.POST })
     public ResponseEntity pushCheck(@PathVariable("Address") String address,
-                                    @PathVariable("method") String method) throws InterruptedException, ExecutionException, IOException
+                                    @PathVariable("method") String method,
+                                    HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
     {
         ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
         address = "0x" + address;
+        String clientDesignator = request.getRemoteAddr() + "-" + request.getRemotePort() + "-" + request.getRemoteUser();
         System.out.println("ADDRESS: " + address);
         System.out.println("METHOD: " + method);
         UriComponents comps = args.build();
         MultiValueMap<String, String> argMap = comps.getQueryParams();
-        CompletableFuture<String> deviceAPIreturn = service.getResponse(address, method, argMap);
+        CompletableFuture<String> deviceAPIreturn = service.getResponse(address, method, argMap, clientDesignator);
         CompletableFuture.allOf(deviceAPIreturn).join();
 
         return new ResponseEntity<>(deviceAPIreturn.get(), HttpStatus.CREATED);

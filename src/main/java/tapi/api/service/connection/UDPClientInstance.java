@@ -26,6 +26,19 @@ public class UDPClientInstance
     boolean validated;
     private Map<Integer, String> responses;
     private Map<Integer, byte[]> currentQueries;
+    private Map<Integer, Query> currentClientQueries;
+
+    private class Query
+    {
+        String query;
+        String origin;
+
+        Query(String origin, String query)
+        {
+            this.query = query;
+            this.origin = origin;
+        }
+    };
 
     UDPClientInstance(InetAddress iAddr, int p, String eAddress)
     {
@@ -35,6 +48,7 @@ public class UDPClientInstance
         validated = false;
         responses = new ConcurrentHashMap<>();
         currentQueries = new ConcurrentHashMap<>();
+        currentClientQueries = new ConcurrentHashMap<>();
 
         validationTime = System.currentTimeMillis();
     }
@@ -55,8 +69,9 @@ public class UDPClientInstance
     public String getResponse(int methodId)
     {
         String resp = responses.get(methodId);
-        responses.remove(methodId);
+        //responses.remove(methodId); //don't remove response, so the other method can pick this up
         currentQueries.remove(methodId);
+        currentClientQueries.remove(methodId);
         return resp;
     }
 
@@ -112,9 +127,14 @@ public class UDPClientInstance
         this.validationTime = System.currentTimeMillis();
     }
 
-    public int sendToClient(String method, MultiValueMap<String, String> argMap) throws IOException
+    public int sendToClient(String origin, String method, MultiValueMap<String, String> argMap) throws IOException
     {
-        return connectedClient.sendToClient(this, method, argMap);
+        int packetId = connectedClient.sendToClient(this, method, argMap);
+        if (packetId > -1)
+        {
+            currentClientQueries.put(packetId, new Query(origin, method));
+        }
+        return packetId;
     }
 
     void setConnectedClient(UDPClient udpClient)
@@ -125,5 +145,19 @@ public class UDPClientInstance
     public void reSendToClient(int methodId) throws IOException
     {
         connectedClient.reSendToClient(this, methodId);
+    }
+
+    public int getMatchingQuery(String origin, String query)
+    {
+        for (int methodId : currentClientQueries.keySet())
+        {
+            Query q = currentClientQueries.get(methodId);
+            if (q.origin.equals(origin) && q.query.equals(query))
+            {
+                return methodId;
+            }
+        }
+
+        return -1;
     }
 }
