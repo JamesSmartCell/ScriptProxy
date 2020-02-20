@@ -67,6 +67,7 @@ public class APIController
         String clientDesignator = request.getRemoteAddr() + "-" + request.getRemotePort() + "-" + request.getRemoteUser();
         System.out.println("ADDRESS: " + address);
         System.out.println("METHOD: " + method);
+        System.out.println("Designator: " + clientDesignator);
         UriComponents comps = args.build();
         MultiValueMap<String, String> argMap = comps.getQueryParams();
         CompletableFuture<String> deviceAPIreturn = service.getResponse(address, method, argMap, clientDesignator);
