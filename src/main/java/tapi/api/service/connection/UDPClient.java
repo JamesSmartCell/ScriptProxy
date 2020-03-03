@@ -255,7 +255,7 @@ public class UDPClient extends Thread
 
     void reSendToClient(UDPClientInstance instance, int methodId) throws IOException
     {
-        if (instance != null && instance.hasResponse(methodId))
+        if (instance != null && !instance.hasResponse(methodId))
         {
             System.out.println("Re-Send to client: " + methodId + " : " + instance.getSessionTokenStr());
             byte[] packetBytes = instance.getQuery(methodId);
