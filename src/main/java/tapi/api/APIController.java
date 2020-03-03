@@ -64,7 +64,7 @@ public class APIController
     {
         ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
         address = "0x" + address;
-        String clientDesignator = request.getRemoteAddr() + "-" + request.getRemotePort() + "-" + request.getRemoteUser();
+        String clientDesignator = request.getRemoteAddr() + "-" + address + method;
         System.out.println("ADDRESS: " + address);
         System.out.println("METHOD: " + method);
         System.out.println("Designator: " + clientDesignator);
