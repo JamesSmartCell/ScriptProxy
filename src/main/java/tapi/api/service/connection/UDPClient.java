@@ -187,6 +187,7 @@ public class UDPClient extends Thread
                     case CLIENT_PING:
                         //ping from client, respond with PONG
                         if (thisClient == null) break;
+                        if (thisClient.getIPAddress().equals(address)) thisClient.port = port;
                         sendToClient(thisClient, PONG, thisClient.getSessionToken(), rcvSessionToken);
                         log(address, "PING -> PONG (" + Numeric.toHexString(rcvSessionToken) + ")");
                         break;
@@ -255,7 +256,7 @@ public class UDPClient extends Thread
 
     void reSendToClient(UDPClientInstance instance, int methodId) throws IOException
     {
-        if (instance != null && !instance.hasResponse(methodId))
+        if (instance != null && !instance.hasResponse(methodId) && instance.getQuery(methodId) != null)
         {
             System.out.println("Re-Send to client: " + methodId + " : " + instance.getSessionTokenStr());
             byte[] packetBytes = instance.getQuery(methodId);

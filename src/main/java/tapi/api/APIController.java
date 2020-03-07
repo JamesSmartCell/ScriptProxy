@@ -70,19 +70,19 @@ public class APIController
         System.out.println("Designator: " + clientDesignator);
         UriComponents comps = args.build();
         MultiValueMap<String, String> argMap = comps.getQueryParams();
-        CompletableFuture<String> deviceAPIreturn = service.getResponse(address, method, argMap, clientDesignator);
-        CompletableFuture.allOf(deviceAPIreturn).join();
+        CompletableFuture<String> deviceAPIReturn = service.getResponse(address, method, argMap, clientDesignator);
+        CompletableFuture.anyOf(deviceAPIReturn);
 
-        return new ResponseEntity<>(deviceAPIreturn.get(), HttpStatus.CREATED);
+        return new ResponseEntity<>(deviceAPIReturn.get(), HttpStatus.CREATED);
     }
 
     @RequestMapping(value = "getEthAddress", method = { RequestMethod.GET, RequestMethod.POST })
     public ResponseEntity getAddresses(HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
     {
         String ipAddress = request.getRemoteAddr();
-        CompletableFuture<String> deviceAPIreturn = service.getDeviceAddress(ipAddress);
-        CompletableFuture.allOf(deviceAPIreturn).join();
+        CompletableFuture<String> deviceAPIReturn = service.getDeviceAddress(ipAddress);
+        CompletableFuture.anyOf(deviceAPIReturn);
 
-        return new ResponseEntity<>(deviceAPIreturn.get(), HttpStatus.CREATED);
+        return new ResponseEntity<>(deviceAPIReturn.get(), HttpStatus.CREATED);
     }
 }

@@ -81,7 +81,7 @@ public class AsyncService
 
         //is there an identical call in progress from the same client?
         int methodId;
-        int checkId = instance.getMatchingQuery(origin, method);
+        final int checkId = instance.getMatchingQuery(origin, method);
         if (checkId != -1)
         {
             methodId = checkId;
@@ -105,7 +105,7 @@ public class AsyncService
                 if (resendIntervalCounter++ > 50) //resend every 500 ms (thread sleep time = 10ms)
                 {
                     resendIntervalCounter = 0;
-                    instance.reSendToClient(methodId);
+                    if (checkId == -1) instance.reSendToClient(methodId);
                     resendCount--;
                 }
 
