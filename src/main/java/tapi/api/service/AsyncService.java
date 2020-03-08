@@ -53,6 +53,16 @@ public class AsyncService
 
     public AsyncService()
     {
+        InetAddress addr = null;
+        try
+        {
+            addr = InetAddress.getLocalHost();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
         udpClients = new ArrayList<>();
         for (int port = UDP_PORT; port <= UDP_TOP_PORT; port++)
         {
@@ -65,10 +75,9 @@ public class AsyncService
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                log(addr, "Couldn't open port " + port);
             }
         }
-
 
         System.out.println("UDP server started");
     }
@@ -179,7 +188,7 @@ public class AsyncService
     {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
         LocalDateTime     now = LocalDateTime.now();
-        System.out.println(dtf.format(now) + ":" + addr.getHostAddress() + ": " + msg);
+        System.out.println(dtf.format(now) + ":" + (addr == null ? "" : addr.getHostAddress()) + ": " + msg);
     }
 
     /**
