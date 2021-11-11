@@ -66,7 +66,7 @@ public class APIController
                                     HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
     {
         ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
-        address = "0x" + address;
+        address = "0x" + address.toLowerCase();
         String clientDesignator = request.getRemoteAddr() + "-" + address + method;
         System.out.println("ADDRESS: " + address);
         System.out.println("METHOD: " + method);

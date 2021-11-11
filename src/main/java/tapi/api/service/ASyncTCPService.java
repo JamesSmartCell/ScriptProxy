@@ -46,9 +46,9 @@ public class ASyncTCPService extends Thread implements TCPCallback
         Observable.interval(1, 2, TimeUnit.MINUTES)
                 .doOnNext(l -> sendKeepAlive()).subscribe();
 
-        try (ServerSocket serverSocket = new ServerSocket(8003)) {
+        try (ServerSocket serverSocket = new ServerSocket(8081)) {
 
-            System.out.println("TCP server listening on port " + 8003);
+            System.out.println("TCP server listening on port " + 8081);
 
             while (true)
             {
