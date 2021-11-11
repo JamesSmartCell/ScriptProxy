@@ -29,7 +29,6 @@ gen/
 
 # Gradle files
 .gradle/
-gradle/
 /build
 app/release
 app/debug
