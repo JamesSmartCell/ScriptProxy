@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.http.HttpServletRequest;
 
 import io.reactivex.Observable;
-import io.reactivex.schedulers.Schedulers;
+import tapi.api.service.ASyncTCPService;
 import tapi.api.service.AsyncService;
 
 
@@ -56,6 +56,9 @@ public class APIController
     @Autowired
     private AsyncService service;
 
+    @Autowired
+    private ASyncTCPService tcpService;
+
     @CrossOrigin(origins= {"*"}, maxAge = 10000, allowCredentials = "false" )
     @RequestMapping(value = "/0x{Address}/{method}", method = { RequestMethod.GET, RequestMethod.POST })
     public ResponseEntity pushCheck(@PathVariable("Address") String address,
@@ -71,9 +74,15 @@ public class APIController
         UriComponents comps = args.build();
         MultiValueMap<String, String> argMap = comps.getQueryParams();
         CompletableFuture<String> deviceAPIReturn = service.getResponse(address, method, argMap, clientDesignator);
-        CompletableFuture.anyOf(deviceAPIReturn);
+        CompletableFuture<String> tcpDeviceAPIReturn = tcpService.getResponse(address, method, argMap, clientDesignator);
+        CompletableFuture.anyOf(deviceAPIReturn, tcpDeviceAPIReturn);
 
-        return new ResponseEntity<>(deviceAPIReturn.get(), HttpStatus.CREATED);
+        String responseUDP = deviceAPIReturn.get();
+        String responseTCP = tcpDeviceAPIReturn.get();
+
+        String response = responseTCP != null ? responseTCP : responseUDP;
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @RequestMapping(value = "getEthAddress", method = { RequestMethod.GET, RequestMethod.POST })
