@@ -114,6 +114,7 @@ public class ASyncTCPService extends Thread implements TCPCallback
         byte opcode = bytes[0];
         byte[] message = Arrays.copyOfRange(bytes, 1, bytes.length);
         String address;
+        List<String> responseList;
         switch (opcode)
         {
             case 0x01: //login
@@ -126,13 +127,16 @@ public class ASyncTCPService extends Thread implements TCPCallback
                 break;
             case 0x02: //challenge - client
                 break;
-            case 0x03: //challenge response, address + sig
+            case 0x03: //challenge response, address + sig (sign personal)
+            case 0x07: //               "        "         (normal sign)
                 client = clientIndexList.get(index);
                 byte[] addrBytes = Arrays.copyOfRange(message, 0, 20);
                 byte[] sig = Arrays.copyOfRange(message, 20, message.length);
+                System.out.println("ADDR: " + Numeric.toHexString(addrBytes) + " : " + Numeric.toHexString(sig));
                 if (client == null || addrBytes.length != 20 || sig.length != 65) break;
                 byte[] msg = client.getChallenge();
-                byte[] msgHash = getEthereumMessageHash(msg);
+                System.out.println("MSG: " + Numeric.toHexString(msg));
+                byte[] msgHash = (opcode == 0x03)? getEthereumMessageHash(msg) : Hash.sha3(msg);
                 String recoveredAddr = recoverAddressFromSignature(msgHash, sig);
                 //final check
                 if (Numeric.toHexString(addrBytes).equalsIgnoreCase(recoveredAddr)) {
@@ -147,10 +151,14 @@ public class ASyncTCPService extends Thread implements TCPCallback
             case 0x04: //message to client device
                 break;
             case 0x05: //response from client device
-                List<String> responseList = clientResponse.computeIfAbsent(index, k -> new ArrayList<>());
+                responseList = clientResponse.computeIfAbsent(index, k -> new ArrayList<>());
                 responseList.add(new String(message, StandardCharsets.UTF_8));
                 break;
             case 0x06: //device keepalive
+                break;
+            case 0x08: //response
+                responseList = clientResponse.computeIfAbsent(index, k -> new ArrayList<>());
+                responseList.add(new String(message, StandardCharsets.UTF_8));
                 break;
         }
     }

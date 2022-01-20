@@ -32,8 +32,8 @@ public class AsyncService
     private Map<String, List<UDPClientInstance>> addressToClient = new ConcurrentHashMap<>();
     private Map<String, Integer> IoTAddrToQueryID = new ConcurrentHashMap<>();
 
-    private final static int UDP_PORT = 5000;
-    private final static int UDP_TOP_PORT = 5004;
+    private final static int UDP_PORT = 8003;
+    private final static int UDP_TOP_PORT = 8003;
     private final static long CONNECTION_CLEANUP_TIME = 5L * 60L * 1000L; //after 5 minutes of silence remove a connection
 
     private UDPClientInstance getLatestClient(String ethAddress)
@@ -56,7 +56,7 @@ public class AsyncService
         InetAddress addr = null;
         try
         {
-            addr = InetAddress.getLocalHost();
+            addr = InetAddress.getByName("122.9.138.228");
         }
         catch (Exception e)
         {
@@ -72,14 +72,13 @@ public class AsyncService
                 client.init(this, port);
                 client.start();
                 udpClients.add(client);
+                System.out.println("UDP server started: " + port);
             }
             catch (Exception e)
             {
                 log(addr, "Couldn't open port " + port);
             }
         }
-
-        System.out.println("UDP server started");
     }
 
     public CompletableFuture<String> getResponse(String address, String method,
@@ -161,7 +160,7 @@ public class AsyncService
             byte[] ipBytes = instance.getIPAddress().getAddress();
             if (useFilter) ipBytes[3] = 0;
             InetAddress instanceAddr = InetAddress.getByAddress(ipBytes);
-            if (instanceAddr.equals(inetAddress))
+            //if (instanceAddr.equals(inetAddress))
             {
                 foundAddr = true;
                 sb.append("</br>");

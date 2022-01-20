@@ -11,10 +11,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
@@ -78,6 +75,8 @@ public class UDPClient extends Thread
 
                 InetAddress address = packet.getAddress();
                 int         port    = packet.getPort();
+
+                System.out.println("New Connection from " + address.getAddress()[0] + ":" + address.getAddress()[1] + ":" + address.getAddress()[2] + ":" + address.getAddress()[3] );
 
                 byte type = inputStream.readByte();             //1 byte
                 if (inputStream.read(rcvSessionToken) != 8) log(address, "Error reading session Token");  //8 bytes
@@ -293,7 +292,7 @@ public class UDPClient extends Thread
                 String param = "";
                 if (argMap.get(key).size() > 0)
                 {
-                    param = argMap.get(key).get(0);
+                    param = URLDecoder.decode(argMap.get(key).get(0), "UTF-8");
                 }
                 payloadSize += writeValue(outputStream, param);
             }

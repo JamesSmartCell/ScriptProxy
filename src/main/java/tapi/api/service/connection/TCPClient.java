@@ -6,6 +6,7 @@ import tapi.api.service.TCPCallback;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.URLDecoder;
 
 public class TCPClient extends Thread
 {
@@ -160,7 +161,7 @@ public class TCPClient extends Thread
                 String param = "";
                 if (argMap.get(key).size() > 0)
                 {
-                    param = argMap.get(key).get(0);
+                    param = URLDecoder.decode(argMap.get(key).get(0), "UTF-8");
                 }
                 writeValue(outputStream, param);
             }
