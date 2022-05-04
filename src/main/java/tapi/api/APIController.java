@@ -93,8 +93,11 @@ public class APIController
     {
         String ipAddress = request.getRemoteAddr();
         CompletableFuture<String> deviceAPIReturn = service.getDeviceAddress(ipAddress);
-        CompletableFuture.anyOf(deviceAPIReturn);
+        CompletableFuture<String> deviceAPIReturn2 = tcpService.getDeviceAddress(ipAddress);
+        CompletableFuture.allOf(deviceAPIReturn, deviceAPIReturn2);
 
-        return new ResponseEntity<>(deviceAPIReturn.get(), HttpStatus.CREATED);
+        String returnAddrs = "UDP: " + deviceAPIReturn.get() + "\n" + "TCP: " + deviceAPIReturn2.get();
+
+        return new ResponseEntity<>(returnAddrs, HttpStatus.CREATED);
     }
 }

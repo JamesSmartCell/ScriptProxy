@@ -11,11 +11,14 @@ import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
 import org.web3j.utils.Numeric;
 import tapi.api.service.connection.TCPClient;
+import tapi.api.service.connection.UDPClientInstance;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -256,5 +259,29 @@ public class ASyncTCPService extends Thread implements TCPCallback
         System.arraycopy(message, 0, result, prefix.length, message.length);
 
         return Hash.sha3(result);
+    }
+
+    public CompletableFuture<String> getDeviceAddress(String ipAddress) throws UnknownHostException
+    {
+        InetAddress inetAddress  = InetAddress.getByName(ipAddress);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Devices found on IP address: ");
+        sb.append(ipAddress);
+        byte[]       filter;
+        boolean foundAddr = false;
+
+        for (String address : clientMap.keySet())
+        {
+            foundAddr = true;
+            sb.append("</br>");
+            sb.append(address);
+        }
+
+        if (!foundAddr)
+        {
+            sb.append("</br>No devices");
+        }
+
+        return CompletableFuture.completedFuture(sb.toString());
     }
 }
