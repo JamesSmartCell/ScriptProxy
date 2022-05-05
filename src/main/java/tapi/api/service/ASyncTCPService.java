@@ -1,17 +1,13 @@
 package tapi.api.service;
 
 import io.reactivex.Observable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 import org.web3j.crypto.Hash;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
 import org.web3j.utils.Numeric;
 import tapi.api.service.connection.TCPClient;
-import tapi.api.service.connection.UDPClientInstance;
 
 import java.io.IOException;
 import java.math.BigInteger;
