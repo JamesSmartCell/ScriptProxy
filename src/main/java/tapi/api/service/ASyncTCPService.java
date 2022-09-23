@@ -52,7 +52,7 @@ public class ASyncTCPService extends Thread implements TCPCallback
             while (true)
             {
                 Socket socket = serverSocket.accept();
-                System.out.println("New client connected");
+                System.out.println("New client connected: #" + clientIndex);
 
                 TCPClient client = new TCPClient(socket, this, clientIndex);
                 clientIndexList.put(clientIndex, client);
@@ -68,7 +68,6 @@ public class ASyncTCPService extends Thread implements TCPCallback
 
     private void sendKeepAlive()
     {
-        List<Integer> indexRemoval = new ArrayList<>();
         List<String> removalAddrs = new ArrayList<>();
 
         for (int index : clientIndexList.keySet())
@@ -77,19 +76,11 @@ public class ASyncTCPService extends Thread implements TCPCallback
             if (!client.isAlive() || client.hasTimedOut())
             {
                 client.terminate();
-                indexRemoval.add(index);
             }
             else
             {
                 client.sendKeepAlive();
             }
-        }
-
-        for (int indexRm : indexRemoval)
-        {
-            TCPClient deadClient = clientIndexList.get(indexRm);
-            System.out.println("Remove dead client: " + indexRm + " (" + deadClient.getAddress() + ")");
-            clientIndexList.remove(indexRm);
         }
 
         for (String address : clientMap.keySet())
@@ -139,9 +130,8 @@ public class ASyncTCPService extends Thread implements TCPCallback
                 String recoveredAddr = recoverAddressFromSignature(msgHash, sig);
                 //final check
                 if (Numeric.toHexString(addrBytes).equalsIgnoreCase(recoveredAddr)) {
-                    System.out.println("Recovered Address: " + recoveredAddr);
                     client.setAddress(recoveredAddr);
-                    clientMap.put(recoveredAddr, index);
+                    addToClientMap(recoveredAddr, index);
                 }
                 else {
                     client.terminate();
@@ -149,17 +139,34 @@ public class ASyncTCPService extends Thread implements TCPCallback
                 break;
             case 0x04: //message to client device
                 break;
+            case 0x08: //response
             case 0x05: //response from client device
                 responseList = clientResponse.computeIfAbsent(index, k -> new ArrayList<>());
                 responseList.add(new String(message, StandardCharsets.UTF_8));
                 break;
             case 0x06: //device keepalive
                 break;
-            case 0x08: //response
-                responseList = clientResponse.computeIfAbsent(index, k -> new ArrayList<>());
-                responseList.add(new String(message, StandardCharsets.UTF_8));
-                break;
         }
+    }
+
+    private void addToClientMap(String recoveredAddr, int index)
+    {
+        //check for old connections for this address
+        for (int clIndex : clientIndexList.keySet())
+        {
+            if (clIndex == index) continue;
+            TCPClient client = clientIndexList.get(clIndex);
+
+            if (client.getAddress().equalsIgnoreCase(recoveredAddr))
+            {
+                System.out.println("Terminating Index: " + clIndex + " (" + recoveredAddr + ")");
+                client.terminate();
+            }
+        }
+
+        System.out.println("Link Address: " + recoveredAddr + " Client Index: " + index);
+        //Link client to address
+        clientMap.put(recoveredAddr, index);
     }
 
     private byte[] createChallenge()
@@ -173,7 +180,7 @@ public class ASyncTCPService extends Thread implements TCPCallback
     public void disconnect(int index) {
         TCPClient client = clientIndexList.get(index);
         if (client != null) {
-            System.out.println("Disconnect: " + index);
+            System.out.println("Disconnect: #" + index);
             clientIndexList.remove(index);
         }
     }

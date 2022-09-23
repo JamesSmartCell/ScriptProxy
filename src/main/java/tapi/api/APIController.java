@@ -1,5 +1,6 @@
 package tapi.api;
 
+import io.reactivex.Observable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,37 +12,28 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponents;
+import tapi.api.service.ASyncTCPService;
+import tapi.api.service.AsyncService;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import javax.servlet.http.HttpServletRequest;
-
-import io.reactivex.Observable;
-import tapi.api.service.ASyncTCPService;
-import tapi.api.service.AsyncService;
-
 
 @Controller
 @RequestMapping("/api")
-public class APIController
-{
+public class APIController {
     private static final int CHECK_CONNECTION_INTERVAL = 1; //check for timeouts once per minute
 
-    private class APIData
-    {
+    private class APIData {
         public String fullApiCall;
         public String response;
 
-        public APIData(String call)
-        {
+        public APIData(String call) {
             fullApiCall = call;
             response = "";
         }
@@ -49,11 +41,15 @@ public class APIController
 
     private Map<String, APIData> responses = new HashMap<>();
 
+    //@Autowired
+    //JdbcTemplate jdbc;
+
     @Autowired
-    public APIController()
-    {
+    public APIController() {
         Observable.interval(CHECK_CONNECTION_INTERVAL, CHECK_CONNECTION_INTERVAL, TimeUnit.MINUTES)
                 .doOnNext(l -> service.checkServices()).subscribe();
+
+        //jdbc.execute("insert into users(seq,user_name)values(12,'dobrey')");
     }
 
     @Autowired
@@ -62,12 +58,11 @@ public class APIController
     @Autowired
     private ASyncTCPService tcpService;
 
-    @CrossOrigin(origins= {"*"}, maxAge = 10000, allowCredentials = "false" )
-    @RequestMapping(value = "/0x{Address}/{method}", method = { RequestMethod.GET, RequestMethod.POST })
-    public ResponseEntity pushCheck(@PathVariable("Address") String address,
+    @CrossOrigin(origins = {"*"}, maxAge = 10000, allowCredentials = "false")
+    @RequestMapping(value = "async/0x{Address}/{method}", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity pushAsyncCheck(@PathVariable("Address") String address,
                                     @PathVariable("method") String method,
-                                    HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
-    {
+                                    HttpServletRequest request) throws InterruptedException, ExecutionException, IOException {
         ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
         address = "0x" + address.toLowerCase();
         String clientDesignator = request.getRemoteAddr() + "-" + address + method;
@@ -88,9 +83,33 @@ public class APIController
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    @RequestMapping(value = "getEthAddress", method = { RequestMethod.GET, RequestMethod.POST })
-    public ResponseEntity getAddresses(HttpServletRequest request) throws InterruptedException, ExecutionException, IOException
-    {
+    @CrossOrigin(origins = {"*"}, maxAge = 10000, allowCredentials = "false")
+    @RequestMapping(value = "/0x{Address}/{method}", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity pushCheck(@PathVariable("Address") String address,
+                                    @PathVariable("method") String method,
+                                    HttpServletRequest request) throws InterruptedException, ExecutionException, IOException {
+        ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
+        address = "0x" + address.toLowerCase();
+        String clientDesignator = request.getRemoteAddr() + "-" + address + method;
+        System.out.println("ADDRESS: " + address);
+        System.out.println("METHOD: " + method);
+        System.out.println("Designator: " + clientDesignator);
+        UriComponents comps = args.build();
+        MultiValueMap<String, String> argMap = comps.getQueryParams();
+        CompletableFuture<String> deviceAPIReturn = service.getResponse(address, method, argMap, clientDesignator);
+        CompletableFuture<String> tcpDeviceAPIReturn = tcpService.getResponse(address, method, argMap, clientDesignator);
+        CompletableFuture.anyOf(deviceAPIReturn, tcpDeviceAPIReturn);
+
+        String responseUDP = deviceAPIReturn.get();
+        String responseTCP = tcpDeviceAPIReturn.get();
+
+        String response = responseTCP != null ? responseTCP : responseUDP;
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @RequestMapping(value = "getEthAddress", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity getAddresses(HttpServletRequest request) throws InterruptedException, ExecutionException, IOException {
         String ipAddress = request.getRemoteAddr();
         CompletableFuture<String> deviceAPIReturn = service.getDeviceAddress(ipAddress);
         CompletableFuture<String> deviceAPIReturn2 = tcpService.getDeviceAddress(ipAddress);

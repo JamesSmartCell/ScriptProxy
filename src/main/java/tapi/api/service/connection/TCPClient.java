@@ -57,9 +57,10 @@ public class TCPClient extends Thread
             {
                 //
                 running = false;
-                serverCallback.disconnect(clientIndex);
             }
         };
+
+        serverCallback.disconnect(clientIndex);
     }
 
     public boolean hasTimedOut()
