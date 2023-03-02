@@ -183,10 +183,25 @@ public class TCPClient extends Thread
 
     private int writeValue(DataOutputStream outputStream, String value) throws IOException
     {
-        int writeLength = 1;
-        outputStream.writeByte((byte)value.length());
+        int writeLength = writeLengthHeader(outputStream, value);
         outputStream.write(value.getBytes());
         writeLength += value.length();
         return writeLength;
+    }
+
+    private int writeLengthHeader(DataOutputStream outputStream, String value) throws IOException
+    {
+        int writtenLength = 0;
+        int length = value.length();
+
+        while (length >= 0)
+        {
+            int lengthToWrite = length < 0xFF ? length : 0xFF;
+            outputStream.writeByte((byte)lengthToWrite);
+            length -= 0xFF;
+            writtenLength++;
+        }
+
+        return writtenLength;
     }
 }
