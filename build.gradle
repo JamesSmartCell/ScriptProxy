@@ -1,50 +1,30 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:1.5.6.RELEASE")
-    }
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.0-SNAPSHOT'
+    id 'io.spring.dependency-management' version '1.1.0'
 }
 
-apply plugin: 'java'
-apply plugin: 'eclipse'
-apply plugin: 'org.springframework.boot'
+group = 'com.stl'
+version = '0.0.1-SNAPSHOT'
 
-jar {
-    baseName = 'tokenproxy'
+java {
+    sourceCompatibility = '17'
 }
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
 }
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
 
 dependencies {
-    compile("org.springframework.boot:spring-boot-starter-thymeleaf")
-    compile ('org.web3j:core:4.8.8')
-    testCompile("org.springframework.boot:spring-boot-starter-test")
-//// https://mvnrepository.com/artifact/mysql/mysql-connector-java
-//    implementation group: 'mysql', name: 'mysql-connector-java', version: '8.0.30'
-//// https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-jdbc
-//    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-jdbc', version: '2.7.3'
-
-
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation ('org.web3j:core:4.8.8')
 }
 
-apply plugin: 'application'
-mainClassName = 'tapi.api.Application'
-
-bootRun {
-    main = 'tapi.api.Application'
+tasks.named('test') {
+    useJUnitPlatform()
 }
-
-springBoot {
-    executable = true
-}
-
-//task wrapper(type: Wrapper) {
-//    gradleVersion = '4.1'
-//}

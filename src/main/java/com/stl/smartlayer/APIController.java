@@ -1,6 +1,9 @@
-package tapi.api;
+package com.stl.smartlayer;
 
+import com.stl.smartlayer.service.ASyncService;
+import com.stl.smartlayer.service.ASyncTCPService;
 import io.reactivex.Observable;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,10 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponents;
-import tapi.api.service.ASyncTCPService;
-import tapi.api.service.AsyncService;
 
-import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,8 +28,9 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/api")
 public class APIController {
     private static final int CHECK_CONNECTION_INTERVAL = 1; //check for timeouts once per minute
+    public static final int IOT_PORT = 8003;
 
-    private class APIData {
+    private static class APIData {
         public String fullApiCall;
         public String response;
 
@@ -39,21 +40,16 @@ public class APIController {
         }
     }
 
-    private Map<String, APIData> responses = new HashMap<>();
-
-    //@Autowired
-    //JdbcTemplate jdbc;
+    private final Map<String, APIData> responses = new HashMap<>();
 
     @Autowired
     public APIController() {
         Observable.interval(CHECK_CONNECTION_INTERVAL, CHECK_CONNECTION_INTERVAL, TimeUnit.MINUTES)
                 .doOnNext(l -> service.checkServices()).subscribe();
-
-        //jdbc.execute("insert into users(seq,user_name)values(12,'dobrey')");
     }
 
     @Autowired
-    private AsyncService service;
+    private ASyncService service;
 
     @Autowired
     private ASyncTCPService tcpService;
@@ -61,8 +57,8 @@ public class APIController {
     @CrossOrigin(origins = {"*"}, maxAge = 10000, allowCredentials = "false")
     @RequestMapping(value = "async/0x{Address}/{method}", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity pushAsyncCheck(@PathVariable("Address") String address,
-                                    @PathVariable("method") String method,
-                                    HttpServletRequest request) throws InterruptedException, ExecutionException, IOException {
+                                         @PathVariable("method") String method,
+                                         HttpServletRequest request) throws InterruptedException, ExecutionException, IOException {
         ServletUriComponentsBuilder args = ServletUriComponentsBuilder.fromCurrentRequest();
         address = "0x" + address.toLowerCase();
         String clientDesignator = request.getRemoteAddr() + "-" + address + method;

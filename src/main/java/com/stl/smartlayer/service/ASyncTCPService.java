@@ -1,5 +1,6 @@
-package tapi.api.service;
+package com.stl.smartlayer.service;
 
+import com.stl.smartlayer.service.connection.TCPClient;
 import io.reactivex.Observable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
@@ -7,7 +8,6 @@ import org.web3j.crypto.Hash;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
 import org.web3j.utils.Numeric;
-import tapi.api.service.connection.TCPClient;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -22,6 +22,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+
+import static com.stl.smartlayer.APIController.IOT_PORT;
 
 @Service
 public class ASyncTCPService extends Thread implements TCPCallback
@@ -45,9 +47,9 @@ public class ASyncTCPService extends Thread implements TCPCallback
         Observable.interval(1, 2, TimeUnit.MINUTES)
                 .doOnNext(l -> sendKeepAlive()).subscribe();
 
-        try (ServerSocket serverSocket = new ServerSocket(8003))
+        try (ServerSocket serverSocket = new ServerSocket(IOT_PORT))
         {
-            System.out.println("TCP server listening on port " + 8003);
+            System.out.println("TCP server listening on port " + IOT_PORT);
 
             while (true)
             {

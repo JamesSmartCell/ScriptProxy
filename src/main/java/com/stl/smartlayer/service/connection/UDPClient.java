@@ -1,5 +1,6 @@
-package tapi.api.service.connection;
+package com.stl.smartlayer.service.connection;
 
+import com.stl.smartlayer.service.ASyncService;
 import org.springframework.util.MultiValueMap;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
@@ -16,9 +17,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 
-import tapi.api.service.AsyncService;
-
-import static tapi.api.service.AsyncService.log;
+import static com.stl.smartlayer.service.ASyncService.log;
 
 /**
  * Created by JB on 17/02/2020.
@@ -40,14 +39,14 @@ public class UDPClient extends Thread
     private boolean running;
     private SecureRandom secRand;
     private int port;
-    private AsyncService service;
+    private ASyncService service;
 
     public UDPClient()
     {
         running = false;
     }
 
-    public void init(AsyncService service, int port) throws SocketException
+    public void init(ASyncService service, int port) throws SocketException
     {
         receiveData  = new byte[1024];
         secRand = new SecureRandom();
@@ -265,7 +264,7 @@ public class UDPClient extends Thread
     }
 
     int sendToClient(UDPClientInstance instance, String method,
-                             MultiValueMap<String, String> argMap) throws IOException
+                     MultiValueMap<String, String> argMap) throws IOException
     {
         int packetId = -1;
         if (instance != null)

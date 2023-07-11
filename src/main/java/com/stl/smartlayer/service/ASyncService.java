@@ -1,11 +1,9 @@
-package tapi.api.service;
+package com.stl.smartlayer.service;
 
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
+import com.stl.smartlayer.service.connection.UDPClient;
+import com.stl.smartlayer.service.connection.UDPClientInstance;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 import org.web3j.utils.Numeric;
 
 import java.io.IOException;
@@ -21,19 +19,19 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import tapi.api.service.connection.UDPClient;
-import tapi.api.service.connection.UDPClientInstance;
+import static com.stl.smartlayer.APIController.IOT_PORT;
+
 
 @Service
-public class AsyncService
+public class ASyncService
 {
     private List<UDPClient> udpClients;
     private Map<BigInteger, UDPClientInstance> tokenToClient = new ConcurrentHashMap<>();
     private Map<String, List<UDPClientInstance>> addressToClient = new ConcurrentHashMap<>();
     private Map<String, Integer> IoTAddrToQueryID = new ConcurrentHashMap<>();
 
-    private final static int UDP_PORT = 8003;
-    private final static int UDP_TOP_PORT = 8003;
+    private final static int UDP_PORT = IOT_PORT;
+    private final static int UDP_TOP_PORT = IOT_PORT;
     private final static long CONNECTION_CLEANUP_TIME = 5L * 60L * 1000L; //after 5 minutes of silence remove a connection
 
     private UDPClientInstance getLatestClient(String ethAddress)
@@ -43,15 +41,7 @@ public class AsyncService
         else return null;
     }
 
-    @Autowired
-    private RestTemplate restTemplate;
-
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
-
-    public AsyncService()
+    public ASyncService()
     {
         InetAddress addr = null;
         try
